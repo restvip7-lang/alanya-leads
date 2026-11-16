@@ -1,0 +1,8 @@
+config.ini
+*.session
+*.session-journal
+__pycache__/
+leads.xlsx
+
+# Заявки содержат личные данные. Уберите эту строку, когда репозиторий станет приватным.
+data/
