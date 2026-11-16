@@ -34,9 +34,12 @@ python import_posts.py facebook.txt --group "Русские в Алании"
 ```
 Заявки попадают в тот же `data/leads.csv` (источник `facebook`), повторы пропускаются.
 
-## Отправка на сайт
-Если в `config.ini` заполнены `webhook_url` и `webhook_secret`, каждая новая заявка
-отправляется POST-запросом с JSON (заголовок `X-Leads-Secret`). Поля: `date`, `source`,
+## Рабочий список для Асель (Google Таблица)
+Заявки сами попадают в Google Таблицу, где Асель ставит статус, пишет комментарий и дату
+следующего шага. Подключение: [google_sheet/README.md](google_sheet/README.md).
+
+Технически это webhook: если в `config.ini` заполнены `webhook_url` и `webhook_secret`, каждая
+новая заявка отправляется POST-запросом с JSON (пароль в поле `secret` и в заголовке `X-Leads-Secret`). Поля: `date`, `source`,
 `chat`, `author`, `author_profile`, `budget`, `currency`, `budget_raw`, `property_type`,
 `districts`, `contacts`, `text`, `link`, `id`.
 

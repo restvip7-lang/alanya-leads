@@ -77,13 +77,20 @@ class Webhook:
         self.failed = 0
 
     def add(self, lead):
-        body = json.dumps(lead, ensure_ascii=False).encode("utf-8")
+        # Пароль и в заголовке, и в теле: Google Apps Script заголовки не видит
+        body = json.dumps({**lead, "secret": self.secret}, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(self.url, data=body, method="POST", headers={
             "Content-Type": "application/json", "X-Leads-Secret": self.secret,
         })
         try:
-            with urllib.request.urlopen(req, timeout=20) as r:
-                r.read()
+            with urllib.request.urlopen(req, timeout=30) as r:
+                reply = r.read().decode("utf-8", "replace")
+            try:
+                ok = json.loads(reply).get("ok", True)
+            except ValueError:
+                ok = True
+            if not ok:
+                raise RuntimeError(reply[:200])
         except Exception as e:
             self.failed += 1
             print(f"[!] Сайт не принял заявку {lead.get('id')}: {e}")
