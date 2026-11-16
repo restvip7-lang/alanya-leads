@@ -29,15 +29,29 @@ REAL_ESTATE_HINTS = [
     r"duplex", r"property", r"daire", r"konut",
 ]
 
-DISTRICTS = [
-    "Махмутлар", "Mahmutlar", "Оба", "Oba", "Кестель", "Kestel", "Тосмур", "Tosmur",
-    "Джикджилли", "Cikcilli", "Cıkcıllı", "Авсаллар", "Avsallar", "Конаклы", "Konaklı", "Konakli",
-    "Каргыджак", "Kargıcak", "Kargicak", "Тюрклер", "Türkler", "Turkler", "Паяллар", "Payallar",
-    "Демирташ", "Demirtaş", "Demirtas", "Инжекум", "İncekum", "Incekum", "Окурджалар", "Okurcalar",
-    "Клеопатра", "Kleopatra", "Cleopatra", "Сарай", "Saray", "Тепе", "Tepe",
-    "Бекташ", "Bektaş", "Bektas", "Хаджет", "Hacet", "Газипаша", "Gazipaşa", "Gazipasa",
-    "Центр", "центр Алании", "Alanya center",
-]
+# Каноническое название района -> варианты написания
+DISTRICTS = {
+    "Махмутлар": ["Махмутлар", "Mahmutlar"],
+    "Оба": ["Оба", "Oba"],
+    "Кестель": ["Кестель", "Kestel"],
+    "Тосмур": ["Тосмур", "Tosmur"],
+    "Джикджилли": ["Джикджилли", "Cikcilli", "Cıkcıllı"],
+    "Авсаллар": ["Авсаллар", "Avsallar"],
+    "Конаклы": ["Конаклы", "Konaklı", "Konakli"],
+    "Каргыджак": ["Каргыджак", "Kargıcak", "Kargicak"],
+    "Тюрклер": ["Тюрклер", "Türkler", "Turkler"],
+    "Паяллар": ["Паяллар", "Payallar"],
+    "Демирташ": ["Демирташ", "Demirtaş", "Demirtas"],
+    "Инжекум": ["Инжекум", "İncekum", "Incekum"],
+    "Окурджалар": ["Окурджалар", "Okurcalar"],
+    "Клеопатра": ["Клеопатра", "Kleopatra", "Cleopatra"],
+    "Сарай": ["Сарай", "Saray"],
+    "Тепе": ["Тепе", "Tepe"],
+    "Бекташ": ["Бекташ", "Bektaş", "Bektas"],
+    "Хаджет": ["Хаджет", "Hacet"],
+    "Газипаша": ["Газипаша", "Gazipaşa", "Gazipasa"],
+    "Центр": ["центр Алании", "Alanya center", "Alanya merkez"],
+}
 
 PROPERTY_TYPES = [
     (r"\b(\d)\s*\+\s*(\d)\b", None),
@@ -123,11 +137,9 @@ def extract_type(text: str) -> str:
 
 def extract_districts(text: str) -> str:
     found = []
-    for d in DISTRICTS:
-        if re.search(r"(?<!\w)" + re.escape(d), text, re.I):
-            key = d.lower()
-            if key not in [f.lower() for f in found]:
-                found.append(d)
+    for name, variants in DISTRICTS.items():
+        if any(re.search(r"(?<!\w)" + re.escape(v), text, re.I) for v in variants):
+            found.append(name)
     return ", ".join(found)
 
 

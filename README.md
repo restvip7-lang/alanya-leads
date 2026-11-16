@@ -24,6 +24,22 @@ python parser.py --days 30 # за 30 дней
 Результат пишется в `data/leads.csv` (дописывается, дубли пропускаются). Для Excel укажите
 `file = leads.xlsx`.
 
+## Facebook-группы
+Автоматически читать Facebook-группы нельзя: Facebook запрещает автоматический сбор данных
+и блокирует за это аккаунты, а официального API для групп больше нет. Поэтому посты из групп
+копируются вручную в текстовый файл (между постами строка `---`, ссылку на пост можно
+вставить прямо в текст), а дальше их обрабатывает тот же фильтр:
+```bash
+python import_posts.py facebook.txt --group "Русские в Алании"
+```
+Заявки попадают в тот же `data/leads.csv` (источник `facebook`), повторы пропускаются.
+
+## Отправка на сайт
+Если в `config.ini` заполнены `webhook_url` и `webhook_secret`, каждая новая заявка
+отправляется POST-запросом с JSON (заголовок `X-Leads-Secret`). Поля: `date`, `source`,
+`chat`, `author`, `author_profile`, `budget`, `currency`, `budget_raw`, `property_type`,
+`districts`, `contacts`, `text`, `link`, `id`.
+
 ## Настройка фильтра
 Ключевые слова, районы и типы объектов лежат в `filters.py`. Проверка: `python test_filters.py`.
 
