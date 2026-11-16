@@ -34,9 +34,12 @@ python import_posts.py facebook.txt --group "Русские в Алании"
 ```
 Заявки попадают в тот же `data/leads.csv` (источник `facebook`), повторы пропускаются.
 
-## Рабочий список для Асель (Google Таблица)
-Заявки сами попадают в Google Таблицу, где Асель ставит статус, пишет комментарий и дату
-следующего шага. Подключение: [google_sheet/README.md](google_sheet/README.md).
+## Кабинет Асель
+Заявки сами попадают в кабинет на сайте Асель (`/cabinet/`, репозиторий `assel`). Она входит
+через бота командой `/leads`, ставит статус, пишет комментарий и дату следующего шага.
+В `config.ini`: `webhook_url = https://assel-chi.vercel.app/api/leads/`, `webhook_secret` равен
+`LEADS_SECRET` из настроек Vercel. Запасной вариант без сайта: Google Таблица, см.
+[google_sheet/README.md](google_sheet/README.md).
 
 Технически это webhook: если в `config.ini` заполнены `webhook_url` и `webhook_secret`, каждая
 новая заявка отправляется POST-запросом с JSON (пароль в поле `secret` и в заголовке `X-Leads-Secret`). Поля: `date`, `source`,
