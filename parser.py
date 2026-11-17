@@ -59,7 +59,8 @@ def make_lead(*, date, source, chat, author, author_profile, text, link, uid, au
         "districts": p["districts"], "contacts": p["contacts_in_text"], "text": text,
         "link": link, "id": uid,
         # Кабинет не добавит заявку, если такой же текст уже был (тот же человек в другом чате или копипаст)
-        "dup_keys": dup_keys(text, author_id),
+        "dup_keys": dup_keys(text, author_id,
+                             f"{p['property_type']}|{p['districts']}" if p["property_type"] and p["districts"] else None),
     }
 
 
