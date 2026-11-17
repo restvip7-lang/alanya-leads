@@ -1,15 +1,15 @@
-# Облачный запуск парсера каждые 30 минут. Заявки уходят в кабинет Асель (webhook),
+# Облачный запуск парсера: 08:00, 13:00 и 17:00 по Турции (UTC+3), каждый день, ночью не работает. Заявки уходят в кабинет Асель (webhook),
 # кабинет сам пропускает повторы. Настройка: README → «Запуск в облаке».
 name: Сбор заявок
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "0 5,10,14 * * *"   # UTC: 05:00, 10:00, 14:00 = 08:00, 13:00, 17:00 в Турции
   workflow_dispatch:
     inputs:
       hours:
         description: "За сколько часов собрать"
-        default: "3"
+        default: "16"
 
 concurrency:
   group: parse
@@ -36,8 +36,9 @@ jobs:
           TG_SESSION: ${{ secrets.TG_SESSION }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
-          HOURS: ${{ github.event.inputs.hours || '3' }}
-        # Окно 3 часа при запуске раз в 30 минут: запас на случай, если GitHub пропустит запуск
+          HOURS: ${{ github.event.inputs.hours || '16' }}
+        # Окно 16 часов: утренний запуск захватывает всю ночь (17:00 → 08:00 = 15 ч) с запасом.
+        # Перекрытия не страшны: кабинет сам отбрасывает повторы, уведомление только о новых.
         run: |
           if [ -z "$TG_SESSION" ] || [ -z "$WEBHOOK_SECRET" ]; then
             echo "::notice::Секреты TG_SESSION / WEBHOOK_SECRET ещё не заданы, пропускаю запуск. См. README."

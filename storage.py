@@ -76,6 +76,15 @@ class Webhook:
         self.url, self.secret = url, secret
         self.failed = 0
         self.dup = 0
+        self.new = []  # заявки, которых в кабинете ещё не было: для уведомления
+
+    def _post(self, payload):
+        body = json.dumps({**payload, "secret": self.secret}, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(self.url, data=body, method="POST", headers={
+            "Content-Type": "application/json", "X-Leads-Secret": self.secret,
+        })
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.read().decode("utf-8", "replace")
 
     def add(self, lead):
         # Пароль и в заголовке, и в теле: Google Apps Script заголовки не видит
@@ -91,7 +100,11 @@ class Webhook:
             except ValueError:
                 j = {}
             ok = j.get("ok", True)
-            self.dup += bool(j.get("duplicate"))
+            if j.get("duplicate"):
+                self.dup += 1
+            elif ok:
+                self.new.append({k: lead.get(k) for k in
+                                 ("property_type", "districts", "budget", "currency", "text")})
             if not ok:
                 raise RuntimeError(reply[:200])
         except Exception as e:
@@ -103,6 +116,13 @@ class Webhook:
             print(f"Из них уже были в кабинете: {self.dup}.")
         if self.failed:
             print(f"[!] Не отправлено на сайт: {self.failed}. Они есть в файле.")
+        print(f"Действительно новых в кабинете: {len(self.new)}.")
+        if self.new:
+            try:
+                j = json.loads(self._post({"type": "summary", "leads": self.new}))
+                print(f"Уведомление отправлено: {j.get('sent', '?')} получателям.")
+            except Exception as e:
+                print(f"[!] Уведомление не отправилось: {type(e).__name__}")
         return self.failed
 
 
