@@ -46,3 +46,16 @@ jobs:
             exit 0
           fi
           python parser.py --config config.example.ini --hours "$HOURS"
+      # Отдельный парсер: квартиры на продажу от собственников. Идёт после заявок, той же сессией Telegram
+      # (две одновременные сессии Telegram может разлогинить). Если он упадёт, заявки покупателей уже отправлены.
+      - name: Квартиры от собственников
+        if: always()
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_SESSION: ${{ secrets.TG_SESSION }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          HOURS: ${{ github.event.inputs.hours || '16' }}
+        run: |
+          if [ -z "$TG_SESSION" ] || [ -z "$WEBHOOK_SECRET" ]; then exit 0; fi
+          python owners.py --config config.example.ini --hours "$HOURS"
