@@ -14,7 +14,7 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
-from filters import is_buy_request, parse_lead
+from filters import dup_keys, is_buy_request, parse_lead
 from storage import load_output
 
 ALANYA_TZ = timezone(timedelta(hours=3))  # время Турции, в облаке часы идут по UTC
@@ -50,7 +50,7 @@ def message_link(chat, msg_id):
     return f"https://t.me/c/{chat.id}/{msg_id}"
 
 
-def make_lead(*, date, source, chat, author, author_profile, text, link, uid):
+def make_lead(*, date, source, chat, author, author_profile, text, link, uid, author_id=""):
     p = parse_lead(text)
     return {
         "date": date, "source": source, "chat": chat, "author": author,
@@ -58,6 +58,8 @@ def make_lead(*, date, source, chat, author, author_profile, text, link, uid):
         "budget_raw": p["budget_raw"], "property_type": p["property_type"],
         "districts": p["districts"], "contacts": p["contacts_in_text"], "text": text,
         "link": link, "id": uid,
+        # Кабинет не добавит заявку, если такой же текст уже был (тот же человек в другом чате или копипаст)
+        "dup_keys": dup_keys(text, author_id),
     }
 
 
@@ -106,6 +108,7 @@ async def collect(cfg, since):
                     chat=title, author=name,
                     author_profile=f"@{sender.username}" if getattr(sender, "username", None) else "",
                     text=text, link=message_link(chat, msg.id), uid=f"tg:{chat.id}:{msg.id}",
+                    author_id=getattr(sender, "id", "") or "",
                 )
                 n += store.add(lead)
             print(f"[+] {title}: новых заявок {n}")

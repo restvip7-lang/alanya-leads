@@ -1,7 +1,7 @@
 """Объявления о ПРОДАЖЕ квартир в Алании от собственников (не агентств) и их параметры."""
 import re
 
-from filters import DISTRICTS, extract_budget, extract_contacts, extract_districts
+from filters import DISTRICTS, dup_keys, extract_budget, extract_contacts, extract_districts, text_key
 
 # Слова продавца (RU / EN / TR)
 SALE_PATTERNS = [
@@ -126,9 +126,12 @@ def parse_listing(text: str) -> dict:
     }
 
 
-def text_key(text: str) -> str:
-    """Один и тот же пост, разосланный по разным чатам, даёт одинаковый ключ."""
-    return re.sub(r"\W+", "", text.lower())[:400]
+def listing_dup_keys(text: str, author_id, p: dict) -> list:
+    """Плюс к ключам по тексту: тот же автор, район, планировка и цена = та же квартира, даже если текст переписан."""
+    keys = dup_keys(text, author_id)
+    if author_id and p.get("price") and p.get("rooms"):
+        keys.append(f"flat:{author_id}:{p.get('district')}:{p['rooms']}:{p['price']}")
+    return keys
 
 
-__all__ = ["is_owner_listing", "parse_listing", "text_key", "DISTRICTS", "MAX_LISTINGS_PER_AUTHOR"]
+__all__ = ["is_owner_listing", "parse_listing", "text_key", "listing_dup_keys", "DISTRICTS", "MAX_LISTINGS_PER_AUTHOR"]

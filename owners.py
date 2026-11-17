@@ -16,7 +16,7 @@ import urllib.request
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from owner_filters import MAX_LISTINGS_PER_AUTHOR, is_owner_listing, parse_listing, text_key
+from owner_filters import MAX_LISTINGS_PER_AUTHOR, is_owner_listing, listing_dup_keys, parse_listing, text_key
 from parser import ALANYA_TZ, make_client, message_link, read_config
 
 
@@ -68,6 +68,7 @@ async def collect(cfg, since):
                     "price": p["price"], "currency": p["currency"], "rooms": p["rooms"], "area": p["area"],
                     "district": p["district"], "owner_said": p["owner_said"], "contacts": p["contacts_in_text"],
                     "text": text, "link": message_link(chat, msg.id),
+                    "dup_keys": listing_dup_keys(text, sender.id, p),
                 }
                 n += 1
             print(f"[+] {title}: квартир {n}")

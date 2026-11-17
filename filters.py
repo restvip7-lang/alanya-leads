@@ -186,3 +186,19 @@ def parse_lead(text: str) -> dict:
         "districts": extract_districts(text),
         "contacts_in_text": extract_contacts(text),
     }
+
+
+def text_key(text: str) -> str:
+    """Один и тот же текст, разосланный по разным чатам (с другими смайликами и пробелами), даёт одинаковый ключ."""
+    return re.sub(r"\W+", "", (text or "").lower())[:400]
+
+
+def dup_keys(text: str, author_id="") -> list:
+    """Ключи против дублей: тот же автор с тем же текстом; и тот же длинный текст от кого угодно (копипаст)."""
+    import hashlib
+    k = text_key(text)
+    h = hashlib.sha256(k.encode()).hexdigest()[:24]
+    keys = [f"a:{author_id}:{h}"] if author_id else []
+    if len(k) >= 40:  # короткое «Куплю 1+1» могут написать разные люди, такие по одному тексту не склеиваем
+        keys.append(f"t:{h}")
+    return keys
