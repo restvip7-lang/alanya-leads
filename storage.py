@@ -75,6 +75,7 @@ class Webhook:
     def __init__(self, url, secret):
         self.url, self.secret = url, secret
         self.failed = 0
+        self.dup = 0
 
     def add(self, lead):
         # Пароль и в заголовке, и в теле: Google Apps Script заголовки не видит
@@ -86,18 +87,23 @@ class Webhook:
             with urllib.request.urlopen(req, timeout=30) as r:
                 reply = r.read().decode("utf-8", "replace")
             try:
-                ok = json.loads(reply).get("ok", True)
+                j = json.loads(reply)
             except ValueError:
-                ok = True
+                j = {}
+            ok = j.get("ok", True)
+            self.dup += bool(j.get("duplicate"))
             if not ok:
                 raise RuntimeError(reply[:200])
         except Exception as e:
             self.failed += 1
-            print(f"[!] Сайт не принял заявку {lead.get('id')}: {e}")
+            print(f"[!] Сайт не принял заявку {lead.get('id')}: {type(e).__name__}")
 
     def save(self):
+        if self.dup:
+            print(f"Из них уже были в кабинете: {self.dup}.")
         if self.failed:
             print(f"[!] Не отправлено на сайт: {self.failed}. Они есть в файле.")
+        return self.failed
 
 
 class Storage:
@@ -119,9 +125,9 @@ class Storage:
         return True
 
     def save(self):
+        """Возвращает, сколько заявок сайт не принял."""
         self.file.save()
-        if self.webhook:
-            self.webhook.save()
+        return self.webhook.save() if self.webhook else 0
 
 
 def load_output(cfg):

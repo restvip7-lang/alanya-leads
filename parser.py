@@ -1,20 +1,45 @@
 """Сбор заявок на покупку недвижимости в Алании из Telegram-чатов.
 
-Запуск:  python parser.py            (берёт настройки из config.ini)
-         python parser.py --days 7   (за последние 7 дней)
+Запуск:  python parser.py             (берёт настройки из config.ini)
+         python parser.py --days 7    (за последние 7 дней)
+         python parser.py --hours 3   (за последние 3 часа, так работает облачный запуск)
+
+Любую настройку можно задать переменной окружения (так делает GitHub Actions):
+TG_API_ID, TG_API_HASH, TG_SESSION (строка сессии из login.py), WEBHOOK_URL, WEBHOOK_SECRET.
 """
 import argparse
 import asyncio
 import configparser
+import os
+import sys
 from datetime import datetime, timedelta, timezone
 
 from filters import is_buy_request, parse_lead
 from storage import load_output
 
+ALANYA_TZ = timezone(timedelta(hours=3))  # время Турции, в облаке часы идут по UTC
+
+
+ENV = {
+    "TG_API_ID": ("telegram", "api_id"),
+    "TG_API_HASH": ("telegram", "api_hash"),
+    "TG_SESSION": ("telegram", "session"),
+    "WEBHOOK_URL": ("output", "webhook_url"),
+    "WEBHOOK_SECRET": ("output", "webhook_secret"),
+}
+
 
 def read_config(path):
-    cfg = configparser.ConfigParser()
-    if not cfg.read(path, encoding="utf-8"):
+    # Без интерполяции: в паролях бывает «%», обычный ConfigParser на нём падает
+    cfg = configparser.ConfigParser(interpolation=None)
+    found = cfg.read(path, encoding="utf-8")
+    for sec in ("telegram", "sources", "output"):
+        if not cfg.has_section(sec):
+            cfg.add_section(sec)
+    for var, (sec, key) in ENV.items():
+        if os.environ.get(var, "").strip():
+            cfg.set(sec, key, os.environ[var].strip())
+    if not found and not cfg.get("telegram", "api_id", fallback=""):
         raise SystemExit(f"Не найден {path}. Скопируйте config.example.ini в config.ini и заполните.")
     return cfg
 
@@ -36,14 +61,28 @@ def make_lead(*, date, source, chat, author, author_profile, text, link, uid):
     }
 
 
-async def collect(cfg, days):
+def make_client(tg):
     from telethon import TelegramClient
+    from telethon.sessions import StringSession
 
+    session = tg.get("session", "").strip()
+    return TelegramClient(StringSession(session) if session else "alanya_session",
+                          int(tg["api_id"]), tg["api_hash"]), bool(session)
+
+
+async def collect(cfg, since):
     tg = cfg["telegram"]
-    chats = [c.strip() for c in cfg["sources"]["chats"].splitlines() if c.strip()]
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    chats = [c.strip() for c in cfg.get("sources", "chats", fallback="").splitlines() if c.strip()]
+    if not chats:
+        raise SystemExit("В config.ini не указаны чаты ([sources] chats).")
     store = load_output(cfg)
-    async with TelegramClient("alanya_session", int(tg["api_id"]), tg["api_hash"]) as client:
+    client, from_string = make_client(tg)
+    if from_string or not sys.stdin.isatty():
+        await client.connect()
+        if not await client.is_user_authorized():
+            raise SystemExit("Telegram не авторизован: строка сессии неверна или устарела. "
+                             "Получите новую: python login.py")
+    async with client:
         for chat_ref in chats:
             try:
                 chat = await client.get_entity(chat_ref)
@@ -63,24 +102,30 @@ async def collect(cfg, days):
                                               getattr(sender, "last_name", None)])) \
                     or getattr(sender, "title", "") or ""
                 lead = make_lead(
-                    date=msg.date.astimezone().strftime("%Y-%m-%d %H:%M"), source="telegram",
+                    date=msg.date.astimezone(ALANYA_TZ).strftime("%Y-%m-%d %H:%M"), source="telegram",
                     chat=title, author=name,
                     author_profile=f"@{sender.username}" if getattr(sender, "username", None) else "",
                     text=text, link=message_link(chat, msg.id), uid=f"tg:{chat.id}:{msg.id}",
                 )
                 n += store.add(lead)
             print(f"[+] {title}: новых заявок {n}")
-    store.save()
-    print(f"Готово. Добавлено {store.added} заявок.")
+    failed = store.save()
+    print(f"Готово. Новых заявок: {store.added}.")
+    return failed
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, help="за сколько дней собирать")
+    ap.add_argument("--hours", type=int, help="за сколько часов собирать")
     ap.add_argument("--config", default="config.ini")
     args = ap.parse_args()
     cfg = read_config(args.config)
-    asyncio.run(collect(cfg, args.days or cfg.getint("sources", "days", fallback=3)))
+    span = timedelta(hours=args.hours) if args.hours else \
+        timedelta(days=args.days or cfg.getint("sources", "days", fallback=3))
+    failed = asyncio.run(collect(cfg, datetime.now(timezone.utc) - span))
+    if failed:
+        sys.exit(1)  # чтобы в GitHub Actions запуск стал красным и было видно, что кабинет не принял заявки
 
 
 if __name__ == "__main__":

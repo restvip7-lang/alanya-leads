@@ -1,0 +1,46 @@
+# Облачный запуск парсера каждые 30 минут. Заявки уходят в кабинет Асель (webhook),
+# кабинет сам пропускает повторы. Настройка: README → «Запуск в облаке».
+name: Сбор заявок
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "За сколько часов собрать"
+        default: "3"
+
+concurrency:
+  group: parse
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Собрать заявки
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_SESSION: ${{ secrets.TG_SESSION }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          HOURS: ${{ github.event.inputs.hours || '3' }}
+        # Окно 3 часа при запуске раз в 30 минут: запас на случай, если GitHub пропустит запуск
+        run: |
+          if [ -z "$TG_SESSION" ] || [ -z "$WEBHOOK_SECRET" ]; then
+            echo "::notice::Секреты TG_SESSION / WEBHOOK_SECRET ещё не заданы, пропускаю запуск. См. README."
+            exit 0
+          fi
+          python parser.py --config config.example.ini --hours "$HOURS"
