@@ -21,6 +21,11 @@ EXCLUDE_PATTERNS = [
     r"\bаренд\w*", r"\bсниму\b", r"\bснять\b", r"\bпосуточно\b", r"\bдолгосрок\w*",
     r"\bfor\s+sale\b", r"\bfor\s+rent\b", r"\bto\s+rent\b", r"\brent(?:al)?\b",
     r"\bsatılık\b(?!\s+arıyorum)", r"\bkiralık\b",
+    # Не недвижимость: валюта, крипта, машины, вещи
+    r"usdt", r"u\.s\.d\.t", r"крипт\w*", r"\bbtc\b", r"биткоин\w*", r"\bобмен\w*", r"наличн\w+\s+(?:доллар|евро|лир)",
+    r"\bмашин\w*", r"\bавто(?:мобил\w*)?\b", r"\bскутер\w*", r"\bмотоцикл\w*", r"\bбайк\w*",
+    r"\bмебел\w*", r"\bдиван\w*", r"\bхолодильник\w*", r"\bстиральн\w*", r"\bтелефон\w*\s+(?:iphone|айфон)",
+    r"\biphone\b", r"\bайфон\w*",
 ]
 
 REAL_ESTATE_HINTS = [
@@ -85,7 +90,8 @@ def is_buy_request(text: str) -> bool:
         return False
     if any(p.search(text) for p in _excl):
         return False
-    return any(p.search(text) for p in _hint) or re.search(r"\bкуплю\b", text, re.I) is not None
+    # Обязательно должно быть слово про недвижимость: «куплю USDT» или «куплю диван» не заявка
+    return any(p.search(text) for p in _hint)
 
 
 def extract_budget(text: str):
