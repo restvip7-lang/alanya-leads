@@ -21,6 +21,10 @@ EXCLUDE_PATTERNS = [
     r"\bаренд\w*", r"\bсниму\b", r"\bснять\b", r"\bпосуточно\b", r"\bдолгосрок\w*",
     r"\bfor\s+sale\b", r"\bfor\s+rent\b", r"\bto\s+rent\b", r"\brent(?:al)?\b",
     r"\bsatılık\b(?!\s+arıyorum)", r"\bkiralık\b",
+    # Аренда по сроку: «на 2 месяца», «на зиму», «в месяц», «помесячно»
+    r"\bна\s+(?:\d+\s*|пару\s+|несколько\s+)?(?:месяц\w*|мес\b|недел\w*|сут\w*|дн\w*|ноч\w*|зиму|лето|сезон\w*|полгода)",
+    r"\bв\s+месяц\b", r"/\s*мес", r"\bпомесячн\w*", r"\bежемесячн\w*", r"\bper\s+month\b", r"\bmonthly\b",
+    r"\bfor\s+(?:\d+\s+)?(?:months?|weeks?|the\s+winter|the\s+summer)\b", r"\baylık\b",
     # Срочная продажа (это продавцы, а не покупатели). Просто «срочно» не трогаем: «ищу срочно» бывает у покупателей
     r"срочн\w*\s+(?:\w+\s+){0,2}прода\w*", r"прода\w*\s+(?:\w+\s+){0,2}срочн\w*", r"\bacil\b", r"urgent\s+sale",
     r"\bсрочняк\w*",
@@ -86,6 +90,9 @@ _budget_re = re.compile(
 )
 
 
+MIN_PRICE = 30_000
+
+
 def is_buy_request(text: str) -> bool:
     if not text or len(text) < 10:
         return False
@@ -94,10 +101,14 @@ def is_buy_request(text: str) -> bool:
     if any(p.search(text) for p in _excl):
         return False
     # Обязательно должно быть слово про недвижимость: «куплю USDT» или «куплю диван» не заявка
-    return any(p.search(text) for p in _hint)
+    if not any(p.search(text) for p in _hint):
+        return False
+    # Сумма меньше 30 000 (в любой валюте) значит аренда или не то: «до 700$», «бюджет 15 000 €»
+    amount = extract_budget(text, min_amount=1)[0]
+    return amount is None or amount >= MIN_PRICE
 
 
-def extract_budget(text: str):
+def extract_budget(text: str, min_amount: int = 1000):
     """Возвращает (сумма_числом, валюта, исходный_фрагмент) или (None, '', '')."""
     best = None
     for m in _budget_re.finditer(text):
@@ -117,7 +128,7 @@ def extract_budget(text: str):
             num *= 1_000
         elif mult in ("млн", "million", "m"):
             num *= 1_000_000
-        if num < 1000:
+        if num < min_amount:
             continue
         c = (cur or "").lower()
         if c in ("€", "евро", "eur", "euro"):
