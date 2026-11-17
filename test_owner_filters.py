@@ -49,3 +49,26 @@ def test_parse_listing():
 
 def test_same_text_in_two_chats_same_key():
     assert text_key("Продам 1+1, 90 000 €!") == text_key("продам 1+1 90000 €")
+
+
+def test_dup_keys():
+    from filters import dup_keys
+    from owner_filters import listing_dup_keys
+    a = "Куплю квартиру 2+1 в Махмутларе, бюджет до 150 000 €, рассмотрю вторичку"
+    b = "🔥 куплю квартиру 2+1 в Махмутларе бюджет до 150000 € рассмотрю вторичку!!"
+    assert dup_keys(a, 1) == dup_keys(b, 1)            # тот же человек, другой чат и смайлики
+    assert dup_keys(a, 1)[-1] == dup_keys(b, 2)[-1]    # тот же текст от другого человека
+    assert dup_keys("Куплю 1+1", 1) == [dup_keys("Куплю 1+1", 1)[0]]  # короткий текст склеиваем только у одного автора
+    p = parse_listing(OWNER[0])
+    k1 = listing_dup_keys(OWNER[0], 5, p)
+    k2 = listing_dup_keys("Продаю 2+1 Махмутлар, 145000 евро, звоните", 5, parse_listing("Продаю 2+1 Махмутлар, 145000 евро"))
+    assert k1[-1] == k2[-1] == "flat:5:Махмутлар:2+1:145000"
+
+
+def test_same_request_other_language_is_duplicate():
+    from parser import make_lead
+    tr = "Alanya'da vatandaşlık için daire arıyorum. Sadece 2+1, bölge: Kleopatra veya Oba. Satın almak istiyorum"
+    ru = "Куплю апартаменты в Алании, только 2+1, районы: Клеопатра или Оба, бюджет до 130 000 €"
+    a = make_lead(date="", source="telegram", chat="c", author="Nikola", author_profile="", text=tr, link="", uid="1", author_id=7)
+    b = make_lead(date="", source="telegram", chat="c", author="Nikola", author_profile="", text=ru, link="", uid="2", author_id=7)
+    assert set(a["dup_keys"]) & set(b["dup_keys"])

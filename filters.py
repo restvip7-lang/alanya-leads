@@ -24,7 +24,7 @@ EXCLUDE_PATTERNS = [
     r"\b(?:long|short)[\s-]?term\b", r"\b(?:uzun|kısa)\s+dönem\w*",
     # Объявления продавцов и агентств: «продажа», «стоимость», «цена: 95 000», застройщик, рассрочка, ID объекта
     r"\bпродаж\w*", r"\bстоимост\w*", r"\bцена\s*[:\-–—]\s*\d", r"застройщик\w*", r"рассрочк\w*",
-    r"\bпредлагаем\b", r"\bв\s+наличии\b", r"\bid\s*(?:объекта)?\s*[:#№]?\s*\d+", r"\bkurt\s+safir\b",
+    r"\bпредлагаем\b", r"если\s+(?:вы\s+)?(?:думаете|планируете|хотите|решили|собираетесь)\s+(?:\w+\s+)?прода", r"\bв\s+наличии\b", r"\bid\s*(?:объекта)?\s*[:#№]?\s*\d+", r"\bkurt\s+safir\b",
     r"\bfor\s+sale\b", r"\bfor\s+rent\b", r"\bto\s+rent\b", r"\brent(?:al)?\b",
     r"\bsatılık\b(?!\s+arıyorum)", r"\bkiralık\b",
     # Аренда по сроку: «на 2 месяца», «на зиму», «в месяц», «помесячно»
@@ -186,3 +186,22 @@ def parse_lead(text: str) -> dict:
         "districts": extract_districts(text),
         "contacts_in_text": extract_contacts(text),
     }
+
+
+def text_key(text: str) -> str:
+    """Один и тот же текст, разосланный по разным чатам (с другими смайликами и пробелами), даёт одинаковый ключ."""
+    return re.sub(r"\W+", "", (text or "").lower())[:400]
+
+
+def dup_keys(text: str, author_id="", same_request=None) -> list:
+    """Ключи против дублей: тот же автор с тем же текстом; и тот же длинный текст от кого угодно (копипаст)."""
+    import hashlib
+    k = text_key(text)
+    h = hashlib.sha256(k.encode()).hexdigest()[:24]
+    keys = [f"a:{author_id}:{h}"] if author_id else []
+    if len(k) >= 40:  # короткое «Куплю 1+1» могут написать разные люди, такие по одному тексту не склеиваем
+        keys.append(f"t:{h}")
+    # Тот же человек снова ищет тот же тип в тех же районах (другими словами, на другом языке): та же заявка
+    if author_id and same_request:
+        keys.append(f"req:{author_id}:{same_request}")
+    return keys
